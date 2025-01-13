@@ -29,6 +29,7 @@ import static org.myteam.server.member.domain.MemberStatus.*;
 public class CustomOauth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
     @Value("${FRONT_URL:http://localhost:3000}")
     private String frontUrl;
+    private final String frontSignUpPath = "/sign"; // 프론트 회원가입 주소
     private final JwtProvider jwtProvider;
     private final MemberJpaRepository memberJpaRepository;
 
@@ -57,7 +58,9 @@ public class CustomOauth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
         if (member == null || status.equals(PENDING.name())) {
             log.warn("PENDING 상태인 경우 로그인이 불가능합니다");
             // sendErrorResponse(response, HttpStatus.FORBIDDEN, "PENDING 상태인 경우 로그인이 불가능합니다");
-            response.sendRedirect(frontUrl + "?status=" + PENDING.name() + "&email=" + email);
+            String redirectUrl = String.format("%s%s?status=%s&email=%s",
+                    frontUrl, frontSignUpPath, PENDING.name(), email);
+            response.sendRedirect(redirectUrl);
             return;
         } else if (status.equals(INACTIVE.name())) {
             log.warn("INACTIVE 상태인 경우 로그인이 불가능합니다");
