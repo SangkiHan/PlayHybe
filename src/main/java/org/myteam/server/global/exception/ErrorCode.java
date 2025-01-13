@@ -26,6 +26,7 @@ public enum ErrorCode {
     INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "Invalid Token"),
     REFRESH_TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, "Refresh Token Session has expired. Please log in again."),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "Invalid Refresh Token"),
+    UNAUTHORIZED_EMAIL_ACCOUNT(HttpStatus.UNAUTHORIZED, "Email account verification failed due to an invalid refresh token."),
 
     // 403 Forbidden
     ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "Account disabled"),
