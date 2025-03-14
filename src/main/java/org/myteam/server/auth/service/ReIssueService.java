@@ -20,9 +20,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.myteam.server.global.exception.ErrorCode.*;
-import static org.myteam.server.global.security.jwt.JwtProvider.TOKEN_CATEGORY_ACCESS;
-import static org.myteam.server.global.security.jwt.JwtProvider.TOKEN_CATEGORY_REFRESH;
-import static org.myteam.server.util.cookie.CookieUtil.getCookie;
+import static org.myteam.server.global.security.jwt.JwtProvider.*;
+import static org.myteam.server.global.util.cookie.CookieUtil.getCookie;
 
 @Slf4j
 @Service
@@ -30,7 +29,6 @@ import static org.myteam.server.util.cookie.CookieUtil.getCookie;
 public class ReIssueService {
     private final JwtProvider jwtProvider;
     private final RefreshJpaRepository refreshJpaRepository;
-    private static final String REFRESH_TOKEN_KEY = "X-Refresh-Token";
 
     /**
      * Refresh Token 검증
@@ -93,7 +91,8 @@ public class ReIssueService {
     public Tokens reissueTokens(HttpServletRequest request) {
         try {
             // Refresh Token 추출 및 디코딩
-            String refresh = extractRefreshToken(request);;
+            String refresh = extractRefreshToken(request);
+            ;
 
             log.info("Extracted refresh token: {}", refresh);
 
@@ -108,7 +107,7 @@ public class ReIssueService {
 
             // 새로운 Access 및 Refresh 토큰 생성
             // Authorization
-            String newAccess = jwtProvider.generateToken(TOKEN_CATEGORY_ACCESS, Duration.ofMinutes(10), publicId, role, status);
+            String newAccess = jwtProvider.generateToken(TOKEN_CATEGORY_ACCESS, Duration.ofDays(1), publicId, role, status);
             // X-Refresh-Token
             String newRefresh = jwtProvider.generateToken(TOKEN_CATEGORY_REFRESH, Duration.ofHours(24), publicId, role, status);
 

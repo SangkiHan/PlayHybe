@@ -5,10 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.myteam.server.global.exception.ErrorCode;
 import org.myteam.server.global.exception.PlayHiveException;
 import org.myteam.server.global.security.jwt.JwtProvider;
-import org.myteam.server.member.domain.MemberRole;
-import org.myteam.server.member.domain.MemberStatus;
-import org.myteam.server.member.dto.*;
 import org.myteam.server.member.controller.response.MemberResponse;
+import org.myteam.server.member.domain.MemberStatus;
+import org.myteam.server.member.domain.MemberType;
+import org.myteam.server.member.dto.*;
 import org.myteam.server.member.entity.Member;
 import org.myteam.server.member.repository.MemberJpaRepository;
 import org.myteam.server.member.repository.MemberRepository;
@@ -23,6 +23,7 @@ import java.util.UUID;
 
 import static org.myteam.server.global.domain.PlayHiveValidator.validate;
 import static org.myteam.server.global.exception.ErrorCode.*;
+import static org.myteam.server.global.security.jwt.JwtProvider.TOKEN_PREFIX;
 
 @Slf4j
 @Service
@@ -49,15 +50,16 @@ public class MemberService {
 
         // 2. 패스워드인코딩 + 회원 가입
         Member member = memberJpaRepository.save(new Member(memberSaveRequest, passwordEncoder));
+        member.updateStatus(MemberStatus.ACTIVE);
 
         // 4. dto 응답
         return new MemberResponse(member);
     }
 
     @Transactional
-    public MemberResponse update(String email, MemberUpdateRequest memberUpdateRequest) {
+    public MemberResponse update(String loginUserEmail, MemberUpdateRequest memberUpdateRequest) {
         // 1. 동일한 유저 이름 존재 검사
-        Optional<Member> memberOP = memberRepository.findByEmail(email);
+        Optional<Member> memberOP = memberRepository.findByEmail(loginUserEmail);
 
         // 2. 아이디 미존재 체크
         if (memberOP.isEmpty()) {
@@ -65,7 +67,7 @@ public class MemberService {
         }
 
         // 3. 자신의 계정이 아닌 다른 계정을 수정하려고 함
-        if (!memberOP.get().verifyOwnEmail(email)) {
+        if (!memberOP.get().verifyOwnEmail(memberUpdateRequest.getEmail())) {
             throw new PlayHiveException(NO_PERMISSION);
         }
 
@@ -106,11 +108,11 @@ public class MemberService {
     }
 
     @Transactional
-    public void delete(String email, String password) {
-        Member findMember = memberRepository.getByEmail(email);
+    public void delete(String requestEmail, String loginUserEmail, String password) {
+        Member findMember = memberRepository.getByEmail(loginUserEmail);
 
         // 자신의 계정인지 체크
-        boolean isOwnValid = findMember.verifyOwnEmail(email);
+        boolean isOwnValid = findMember.verifyOwnEmail(requestEmail);
         if (!isOwnValid) throw new PlayHiveException(NO_PERMISSION);
 
         // 비밀번호 일치 여부 확인
@@ -132,7 +134,7 @@ public class MemberService {
         log.info("playHive updateRole isValid: {}", isValid);
 
         if (!isValid) {
-              // 빈 Response 객체 반환
+            // 빈 Response 객체 반환
             throw new PlayHiveException(NO_PERMISSION, "인증 키와 패스워드가 일치하지 않습니다");
         }
 
@@ -178,6 +180,8 @@ public class MemberService {
         // 1. 요청자가 본인의 상태를 변경하려는 경우
         if (requester.verifyOwnEmail(memberStatusUpdateRequest.getEmail())) {
             log.info("사용자가 자신의 상태를 변경 중: {}", targetEmail);
+            if (!requester.getStatus().equals(MemberStatus.PENDING))
+                throw new PlayHiveException(NO_PERMISSION); // PENDING 인 경우에만 본인의 상태 변경 가능하도록 처리
             requester.updateStatus(memberStatusUpdateRequest.getStatus());
             return;
         }
@@ -220,12 +224,18 @@ public class MemberService {
      * @return
      */
     public MemberResponse getAuthenticatedMember(String authorizationHeader) {
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith(TOKEN_PREFIX)) {
             throw new PlayHiveException(NO_PERMISSION);
         }
 
         String accessToken = jwtProvider.getAccessToken(authorizationHeader);
         UUID publicId = jwtProvider.getPublicId(accessToken);
         return getByPublicId(publicId);
+    }
+
+    public MemberType getMemberTypeByEmail(String email) {
+        return memberRepository.findByEmail(email)
+                .map(Member::getType)
+                .orElse(null);
     }
 }
